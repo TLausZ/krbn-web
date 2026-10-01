@@ -285,8 +285,8 @@ const SECTIONS = [
     ['variableWidth', 'variable width (ribbons)', 'check', false],
     ['hidden', 'hidden lines', 'select', 'drop', [['drop', 'drop'], ['ghost', 'ghost']]],
     ['ghostOpacity', 'ghost opacity', 'range', 0.32, 0, 1, 0.01],
-    ['hiddenDash', 'hidden dash', 'text', '4, 3'],
-    ['visibleDash', 'visible dash (empty = solid)', 'text', ''],
+    ['hiddenDash', 'hidden dash', 'text', '4, 3', 'e.g. 4, 3'],
+    ['visibleDash', 'visible dash (empty = solid)', 'text', '', 'solid · e.g. 6, 3'],
   ]],
   ['hatch', [
     ['hatchMode', 'mode', 'select', 'triple', [['none', 'none'], ['single', 'single'], ['cross', 'cross'], ['triple', 'triple']]],
@@ -335,7 +335,7 @@ for (const [title, ctrls, hint] of SECTIONS) {
     } else if (type === 'check') {
       d.innerHTML = `<label><input type="checkbox" id="${key}">${q}</label>`;
     } else {
-      d.innerHTML = `<label for="${key}">${q}</label><input type="${type}" id="${key}">`;
+      d.innerHTML = `<label for="${key}">${q}</label><input type="${type}" id="${key}"${a ? ` placeholder="${a}"` : ''}>`;
     }
     box.appendChild(d);
   }
@@ -366,8 +366,8 @@ const HELP = {
   variableWidth: 'draws strokes as filled ribbons that taper and swell like a pencil. a plotter traces only their outline, so every line comes out double. leave it off for plotting.',
   hidden: 'lines behind the model: ghost draws them as faint dashes (x-ray), drop leaves them out so the surface reads as opaque.',
   ghostOpacity: 'opacity of ghosted hidden lines.',
-  hiddenDash: 'dash pattern of hidden lines in px: dash, gap, dash, gap …',
-  visibleDash: 'dash pattern of visible lines in px. empty draws them solid.',
+  hiddenDash: 'dash pattern of hidden lines: lengths in px, alternating dash and gap, separated by commas or spaces. «4, 3» draws 4 px dashes with 3 px gaps, «8, 2, 2, 2» a dash-dot line. only used while hidden lines are set to ghost.',
+  visibleDash: 'dash pattern of visible lines: lengths in px, alternating dash and gap, separated by commas or spaces. «6, 3» draws 6 px dashes with 3 px gaps, «8, 2, 2, 2» a dash-dot line. empty draws solid lines.',
   hatchMode: 'shades the surface with lines: single, cross or triple layered hatching, denser where the surface is darker. none draws outlines only.',
   hatchField: 'hatch lines follow the surface curvature (traced streamlines on meshes). off draws straight parallel hatching.',
   hatchAngle: 'direction of the hatch lines in degrees.',
