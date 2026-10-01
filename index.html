@@ -713,7 +713,7 @@ const $ = id => document.getElementById(id);
 // ponytail: select-Optionen stehen in min; ein Feld weniger als ein eigenes Schema
 const SECTIONS = [
   ['model', [
-    ['model', 'source', 'select', 'mushroom', [['mushroom', 'mushroom.obj (demo)'], ['knot', 'trefoil knot'], ['torus', 'torus'], ['blob', 'bumpy blob'], ['sphere', 'sphere'], ['cube', 'cube'], ['well', 'gravity well']]],
+    ['model', 'source', 'select', 'knot', [['mushroom', 'mushroom'], ['knot', 'trefoil knot'], ['torus', 'torus'], ['blob', 'bumpy blob'], ['sphere', 'sphere'], ['cube', 'cube'], ['well', 'gravity well']]],
     ['up', 'up axis', 'select', 'y', [['z', '+z'], ['y', '+y'], ['x', '+x']]],
     ['spin', 'spin', 'range', 180, 0, 360, 5],
     ['detail', 'weld / decimate', 'range', 0.01, 0, 0.05, 0.001],
@@ -1086,7 +1086,7 @@ $('ptoggle').onclick = () => {
   $('ptoggle').innerHTML = hidden ? '&lsaquo;' : '&rsaquo;';
 };
 
-setVal('model', 'mushroom');
+setVal('model', 'knot');
 resetValues();
 render();
 </script>
