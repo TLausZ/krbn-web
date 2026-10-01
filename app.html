@@ -144,6 +144,8 @@ SOFTWARE.
   .ctrl input[type=range] { width: 100%; accent-color: var(--ink); height: 16px; }
   .ctrl.check label { justify-content: flex-start; gap: 6px; margin: 0; cursor: pointer; }
   .ctrl.check input { accent-color: var(--ink); }
+  input.bad { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .hint.err { color: var(--ink); margin-top: 2px; }
   select, input[type=text], input[type=number] {
     font-family: inherit;
     font-size: 12px;
@@ -335,7 +337,8 @@ for (const [title, ctrls, hint] of SECTIONS) {
     } else if (type === 'check') {
       d.innerHTML = `<label><input type="checkbox" id="${key}">${q}</label>`;
     } else {
-      d.innerHTML = `<label for="${key}">${q}</label><input type="${type}" id="${key}"${a ? ` placeholder="${a}"` : ''}>`;
+      d.innerHTML = `<label for="${key}">${q}</label><input type="${type}" id="${key}"${a ? ` placeholder="${a}"` : ''}>`
+        + (type === 'text' ? `<div class="hint err" id="${key}_err" hidden>ignored: use numbers like 6, 3</div>` : '');
     }
     box.appendChild(d);
   }
@@ -420,6 +423,15 @@ function setVal(key, v) {
   if (el.type === 'checkbox') el.checked = v; else el.value = v;
   const c = CTRLS.find(c => c[0] === key);
   if (c[2] === 'range') $(key + '_v').textContent = fmt(el.value, c[6]);
+  if (c[2] === 'text') checkDash(key);
+}
+// dash-felder: leer oder nur zahlen > 0. sonst wirft der worker die eingabe weg
+// und zeichnet durchgezogen, das soll sichtbar sein
+function checkDash(key) {
+  const parts = $(key).value.split(/[\s,]+/).filter(Boolean);
+  const bad = !parts.every(t => Number(t) > 0);
+  $(key).classList.toggle('bad', bad);
+  $(key + '_err').hidden = !bad;
 }
 function readParams() {
   const p = {};
@@ -495,6 +507,7 @@ const schedule = () => { clearTimeout(timer); timer = setTimeout(render, 200); }
 $('controls').addEventListener('input', e => {
   const c = CTRLS.find(c => c[0] === e.target.id);
   if (c && c[2] === 'range') $(c[0] + '_v').textContent = fmt(e.target.value, c[6]);
+  if (c && c[2] === 'text') checkDash(c[0]);
   if (e.target.id === 'model') applyPose();
   schedule();
 });
