@@ -79,7 +79,7 @@ self.onmessage = (e: MessageEvent) => {
       creaseAngle: (p.creaseAngle * Math.PI) / 180,
       suggestive: p.suggestive ? { threshold: p.sugThreshold, fade: p.sugFade } : false,
     });
-    const el = scene.add(mesh).setRole(p.role).style({
+    const el = scene.add(mesh).setImportance(p.importance).style({
       weight: p.weight,
       color: p.color,
       wobble: p.wobble,
