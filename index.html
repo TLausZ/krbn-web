@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <!--
 krbn pencil render: web app around Krbn, https://github.com/vpalos/Krbn
+Built from Krbn commit 09d96d3d74b50c45c6454c94f5650f56680e0716
 The embedded worker script contains Krbn, licensed as follows:
 
 MIT License
@@ -790,6 +791,12 @@ function applyPose() {
 }
 
 // --- render ---
+// app.html ist die vorlage ohne engine; build.sh ersetzt nur das erste vorkommen des
+// markers (im script-tag oben), dieser vergleich bleibt im build unveraendert stehen
+if ($('workerSrc').textContent.trim() === '/*WORKER*/') {
+  $('status').textContent = 'this is the source template without the engine. run ./build.sh and open index.html';
+  throw new Error('krbn: worker not built');
+}
 const workerUrl = URL.createObjectURL(new Blob([$('workerSrc').textContent], { type: 'text/javascript' }));
 let worker = null, busy = false, pending = false, timer = 0, upload = null, svgString = '', svgUrl = '';
 let dims = { w: 0, h: 0 }; // pixelmasse des angezeigten renders, nicht der aktuellen regler

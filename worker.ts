@@ -1,5 +1,5 @@
 // Render-Worker: bekommt Modell-Bytes und Einstellungen, liefert ein SVG zurück.
-// Wird von build.sh gebündelt und inline in krbn.html eingesetzt.
+// Wird von build.sh gebündelt und inline in index.html eingesetzt.
 import { Scene, Mesh, parseSTL, parseOBJ, type MeshInput, type Camera, type Vec3 } from "./Krbn/src/index.ts";
 import { knotTube, torusMesh, bumpyBlob, uvSphere, cube, gravitySheet } from "./Krbn/src/shapes.ts";
 // @ts-ignore: esbuild text-loader
