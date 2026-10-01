@@ -71,7 +71,10 @@ SOFTWARE.
     border-bottom: 1px solid var(--border);
   }
   header h1 { font-size: 15px; font-weight: 600; color: var(--ink); }
-  header .sub { font-size: 12px; color: var(--ink-faint); }
+  header .sub { font-size: 12px; color: var(--ink-faint); display: flex; align-items: center; gap: 12px; }
+  #busy { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+  #busy[hidden] { display: none; }
+  #btnCancel { flex: none; padding: 4px 10px; }
   main { flex: 1; display: flex; min-height: 0; }
   #stage {
     flex: 1;
@@ -206,7 +209,10 @@ SOFTWARE.
 <body>
 <header>
   <h1>krbn pencil render</h1>
-  <div class="sub" id="info"></div>
+  <div class="sub">
+    <span id="busy" hidden><span id="elapsed"></span><button id="btnCancel">cancel</button></span>
+    <span id="info"></span>
+  </div>
 </header>
 <main>
   <div id="stage"><img id="view" alt="render"></div>
@@ -216,6 +222,7 @@ SOFTWARE.
       <button id="btnReset">reset values</button>
     </div>
     <input type="file" id="fileInput" accept=".stl,.obj" hidden>
+    <div class="hint err" id="warn" hidden></div>
     <div id="controls"></div>
     <div class="ctrl">
       <label><span>paper<span class="help" data-help="paper">?</span></span></label>
@@ -105910,17 +105917,19 @@ function render(queue = false) {
   if (!worker) {
     worker = new Worker(workerUrl);
     worker.onmessage = onResult;
-    worker.onerror = e => { busy = false; $('status').textContent = 'error: ' + e.message; };
+    worker.onerror = e => { busy = false; stopClock(); $('status').textContent = 'error: ' + e.message; };
   }
   const p = readParams();
   const isUp = p.model === '__upload' && upload;
   const model = isUp ? upload.name : p.model;
   busy = true;
+  startClock();
   $('status').textContent = 'rendering…';
   worker.postMessage({ model, bytes: isUp ? upload.bytes.slice(0) : null, p });
 }
 function onResult(e) {
   busy = false;
+  stopClock();
   const r = e.data;
   if (r.error) { $('status').textContent = 'error: ' + r.error; return; }
   svgString = r.svg;
@@ -105931,6 +105940,33 @@ function onResult(e) {
   $('info').textContent = `${modelName()} · ${r.faces.toLocaleString('de-CH')} faces`;
   if (pending) render(true);
 }
+// laufzeit im header, erst ab 1 s, damit kurze renders nicht flackern
+let clock = 0, t0 = 0;
+function startClock() {
+  t0 = performance.now();
+  clearInterval(clock);
+  clock = setInterval(() => {
+    const s = Math.floor((performance.now() - t0) / 1000);
+    if (s < 1) return;
+    $('elapsed').textContent = `rendering… ${s} s`;
+    $('busy').hidden = false;
+  }, 250);
+}
+function stopClock() { clearInterval(clock); $('busy').hidden = true; }
+$('btnCancel').onclick = () => {
+  if (worker) worker.terminate();
+  worker = null; busy = false; pending = false;
+  stopClock();
+  $('status').textContent = 'cancelled. raise weld / decimate or switch hatch off, then change any value to render again';
+};
+
+// ab 8 mb nur warnen, laden geht trotzdem; abbrechen kann man jederzeit
+const WARN_BYTES = 8 * 1024 * 1024;
+function updateWarn() {
+  const big = $('model').value === '__upload' && upload && upload.bytes.byteLength > WARN_BYTES;
+  $('warn').hidden = !big;
+  if (big) $('warn').textContent = `large file (${(upload.bytes.byteLength / 1048576).toFixed(1)} mb): rendering can take long. raise weld / decimate to simplify the mesh; cancel at the top stops a render.`;
+}
 const modelName = () => $('model').value === '__upload' && upload ? upload.name : $('model').selectedOptions[0].textContent;
 const schedule = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
 
@@ -105938,7 +105974,7 @@ $('controls').addEventListener('input', e => {
   const c = CTRLS.find(c => c[0] === e.target.id);
   if (c && c[2] === 'range') $(c[0] + '_v').textContent = fmt(e.target.value, c[6]);
   if (c && c[2] === 'text') checkDash(c[0]);
-  if (e.target.id === 'model') applyPose();
+  if (e.target.id === 'model') { applyPose(); updateWarn(); }
   schedule();
 });
 
@@ -105950,6 +105986,7 @@ async function loadFile(file) {
   if (!opt) { opt = new Option('', '__upload'); $('model').prepend(opt); }
   opt.textContent = file.name;
   $('model').value = '__upload';
+  updateWarn();
   render();
 }
 $('btnLoad').onclick = () => $('fileInput').click();
