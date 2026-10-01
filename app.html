@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<!--
+krbn pencil render: web app around Krbn, https://github.com/vpalos/Krbn
+The embedded worker script contains Krbn, licensed as follows:
+
+MIT License
+
+Copyright (c) 2026 Krbn contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>krbn pencil render</title>
+<style>
+  :root {
+    --paper: #ece2cd;
+    --paper-bright: #f2ead6;
+    --ink: #5c4a34;
+    --ink-soft: #6b5a42;
+    --ink-faint: #8a7a5e;
+    --border: rgba(110,92,64,0.25);
+    --border-strong: rgba(110,92,64,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    background: var(--paper);
+    color: var(--ink-faint);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    height: 61px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: var(--ink); }
+  header .sub { font-size: 12px; color: var(--ink-faint); }
+  main { flex: 1; display: flex; min-height: 0; }
+  #stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    margin-right: 276px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  #stage.wide { margin-right: 0; }
+  #view { cursor: grab; touch-action: none; }
+  #view.drag { cursor: grabbing; }
+  #stage.drop { outline: 1px dashed var(--ink); outline-offset: -8px; }
+  #view {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    border: 1px solid var(--border);
+  }
+  #view:not([src]) { visibility: hidden; }
+  #panel {
+    position: fixed;
+    top: 61px;
+    right: 0;
+    bottom: 0;
+    width: 276px;
+    background: var(--paper);
+    border-left: 1px solid var(--border);
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform .2s;
+  }
+  #panel.hidden { transform: translateX(277px); }
+  #panel > button { flex: none; }
+  #ptoggle {
+    position: fixed;
+    top: 73px;
+    right: 276px;
+    z-index: 3;
+    width: 29px;
+    height: 29px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 27px;
+    padding: 0;
+    transition: right .2s;
+  }
+  #ptoggle.hidden { right: 8px; }
+  .btnrow { display: flex; gap: 8px; }
+  button {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    flex: 1;
+  }
+  .ctrl label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 2px;
+  }
+  .ctrl .val { color: var(--ink); }
+  .ctrl input[type=range] { width: 100%; accent-color: var(--ink); height: 16px; }
+  .ctrl.check label { justify-content: flex-start; gap: 6px; margin: 0; cursor: pointer; }
+  .ctrl.check input { accent-color: var(--ink); }
+  select, input[type=text], input[type=number] {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 6px 8px;
+    width: 100%;
+  }
+  input[type=color] {
+    width: 100%;
+    height: 29px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    background: var(--paper);
+    padding: 2px;
+  }
+  .sec { font-size: 12px; font-weight: 400; color: var(--ink); }
+  .hint { font-size: 12px; color: var(--ink-faint); }
+  hr { border: none; border-top: 1px solid var(--border); }
+  #status { font-size: 12px; color: var(--ink-faint); min-height: 17px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>krbn pencil render</h1>
+  <div class="sub" id="info"></div>
+</header>
+<main>
+  <div id="stage"><img id="view" alt="render"></div>
+  <div id="panel">
+    <div class="btnrow">
+      <button id="btnLoad">load stl / obj</button>
+      <button id="btnReset">reset values</button>
+    </div>
+    <input type="file" id="fileInput" accept=".stl,.obj" hidden>
+    <div id="controls"></div>
+    <div class="ctrl">
+      <label>paper</label>
+      <select id="paperSel">
+        <option value="" selected>none (pixels)</option>
+        <option value="841,1189" data-slug="A0">A0</option>
+        <option value="594,841" data-slug="A1">A1</option>
+        <option value="420,594" data-slug="A2">A2</option>
+        <option value="297,420" data-slug="A3">A3</option>
+        <option value="210,297" data-slug="A4">A4</option>
+        <option value="148,210" data-slug="A5">A5</option>
+        <option value="863.6,1117.6" data-slug="ANSI-E">ANSI E (34 x 44 in)</option>
+        <option value="558.8,863.6" data-slug="ANSI-D">ANSI D (22 x 34 in)</option>
+        <option value="431.8,558.8" data-slug="ANSI-C">ANSI C (17 x 22 in)</option>
+        <option value="279.4,431.8" data-slug="Tabloid">Tabloid (11 x 17 in)</option>
+        <option value="215.9,355.6" data-slug="Legal">Legal (8.5 x 14 in)</option>
+        <option value="215.9,279.4" data-slug="Letter">Letter (8.5 x 11 in)</option>
+        <option value="139.7,215.9" data-slug="Half-Letter">Half Letter (5.5 x 8.5 in)</option>
+      </select>
+    </div>
+    <button id="btnDl">download svg</button>
+    <hr>
+    <div class="ctrl">
+      <label>raster export <span class="hint">long edge in px</span></label>
+      <div class="btnrow">
+        <input type="number" id="pngSize" value="2048" min="200" max="6000" step="100">
+        <select id="pngFmt"><option value="image/png">png</option><option value="image/webp">webp</option></select>
+      </div>
+    </div>
+    <div class="btnrow" id="pngSizes"><button>1280</button><button>2048</button><button>6000</button></div>
+    <button id="btnDlPng">download raster</button>
+    <div id="status"></div>
+  </div>
+</main>
+<button id="ptoggle" title="show/hide menu">&rsaquo;</button>
+
+<script id="workerSrc" type="text/plain">/*WORKER*/</script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+// [key, label, typ, default, min, max, step] · typ: range | select | check | color | text
+// ponytail: select-Optionen stehen in min; ein Feld weniger als ein eigenes Schema
+const SECTIONS = [
+  ['model', [
+    ['model', 'source', 'select', 'mushroom', [['mushroom', 'mushroom.obj (demo)'], ['knot', 'trefoil knot'], ['torus', 'torus'], ['blob', 'bumpy blob'], ['sphere', 'sphere'], ['cube', 'cube'], ['well', 'gravity well']]],
+    ['up', 'up axis', 'select', 'y', [['z', '+z'], ['y', '+y'], ['x', '+x']]],
+    ['spin', 'spin', 'range', 180, 0, 360, 5],
+    ['detail', 'weld / decimate', 'range', 0.01, 0, 0.05, 0.001],
+    ['creaseAngle', 'crease angle (180 = none)', 'range', 60, 1, 180, 1],
+    ['suggestive', 'suggestive contours', 'check', false],
+    ['sugThreshold', 'suggestive threshold', 'range', 0, 0, 1, 0.01],
+    ['sugFade', 'suggestive fade', 'range', 0, 0, 1, 0.01],
+    ['role', 'role', 'select', 'default', [['default', 'default'], ['subject', 'subject'], ['context', 'context']]],
+  ]],
+  ['camera', [
+    ['projection', 'projection', 'select', 'perspective', [['perspective', 'perspective'], ['orthographic', 'orthographic']]],
+    ['camAz', 'azimuth', 'range', 37, -180, 180, 1],
+    ['camEl', 'elevation', 'range', 28, -89, 89, 1],
+    ['zoom', 'zoom', 'range', 1, 0.3, 4, 0.05],
+    ['width', 'width px', 'range', 600, 200, 2000, 10],
+    ['height', 'height px', 'range', 600, 200, 2000, 10],
+  ], 'drag on the drawing rotates · wheel zooms · double-click resets'],
+  ['light', [
+    ['lightAz', 'azimuth', 'range', 48, -180, 180, 1],
+    ['lightEl', 'elevation', 'range', 42, -89, 89, 1],
+  ]],
+  ['lines', [
+    ['color', 'color', 'color', '#4a3a28'],
+    ['weight', 'weight', 'range', 1.5, 0.1, 5, 0.05],
+    ['wobble', 'wobble', 'range', 0.7, 0, 3, 0.01],
+    ['variableWidth', 'variable width (ribbons)', 'check', false],
+    ['hidden', 'hidden lines', 'select', 'drop', [['drop', 'drop'], ['ghost', 'ghost']]],
+    ['ghostOpacity', 'ghost opacity', 'range', 0.32, 0, 1, 0.01],
+    ['hiddenDash', 'hidden dash', 'text', '4, 3'],
+    ['visibleDash', 'visible dash (empty = solid)', 'text', ''],
+  ]],
+  ['hatch', [
+    ['hatchMode', 'mode', 'select', 'triple', [['none', 'none'], ['single', 'single'], ['cross', 'cross'], ['triple', 'triple']]],
+    ['hatchField', 'follow curvature', 'check', true],
+    ['hatchAngle', 'angle', 'range', 24, 0, 180, 1],
+    ['hatchSpacing', 'spacing px (0 = from tone)', 'range', 4, 0, 30, 0.5],
+    ['hatchWeight', 'weight', 'range', 0.7, 0.1, 3, 0.05],
+    ['hatchOpacity', 'opacity', 'range', 0.55, 0, 1, 0.01],
+  ]],
+  ['highlight', [
+    ['highlight', 'highlight outline', 'check', false],
+    ['hlColor', 'color', 'color', '#965a32'],
+    ['hlDash', 'dash when hidden', 'check', true],
+    ['hlHalo', 'halo', 'check', false],
+  ]],
+  ['abstraction', [
+    ['minFeaturePx', 'drop features below px', 'range', 0, 0, 50, 1],
+    ['toneLevels', 'tone levels (0 = off)', 'range', 0, 0, 10, 1],
+    ['consolidate', 'merge coincident lines', 'check', false],
+    ['tolerancePx', 'sampling tolerance px', 'range', 0.3, 0.05, 2, 0.05],
+  ]],
+  ['output', [
+    ['background', 'background', 'color', '#ece2cd'],
+    ['transparent', 'transparent background', 'check', false],
+    ['centerline', 'plotter centerlines', 'check', false],
+    ['precision', 'decimal places', 'range', 2, 0, 5, 1],
+  ]],
+];
+const DEMO_POSE = { mushroom: ['y', 180] }; // alle anderen Demos: +z, 0
+const CTRLS = SECTIONS.flatMap(s => s[1]);
+
+const fmt = (v, step) => step >= 1 ? String(v) : Number(v).toFixed(String(step).split('.')[1].length);
+for (const [title, ctrls, hint] of SECTIONS) {
+  const box = $('controls');
+  box.insertAdjacentHTML('beforeend', `<hr style="margin:12px 0"><div class="sec" style="margin-bottom:8px">${title}</div>`);
+  if (hint) box.insertAdjacentHTML('beforeend', `<div class="hint" style="margin-bottom:8px">${hint}</div>`);
+  for (const [key, label, type, def, a, b, step] of ctrls) {
+    const d = document.createElement('div');
+    d.className = 'ctrl' + (type === 'check' ? ' check' : '');
+    d.style.marginBottom = '8px';
+    if (type === 'range') {
+      d.innerHTML = `<label for="${key}">${label}<span class="val" id="${key}_v"></span></label><input type="range" id="${key}" min="${a}" max="${b}" step="${step}">`;
+    } else if (type === 'select') {
+      d.innerHTML = `<label for="${key}">${label}</label><select id="${key}">${a.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>`;
+    } else if (type === 'check') {
+      d.innerHTML = `<label><input type="checkbox" id="${key}">${label}</label>`;
+    } else {
+      d.innerHTML = `<label for="${key}">${label}</label><input type="${type}" id="${key}">`;
+    }
+    box.appendChild(d);
+  }
+}
+
+function setVal(key, v) {
+  const el = $(key);
+  if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  const c = CTRLS.find(c => c[0] === key);
+  if (c[2] === 'range') $(key + '_v').textContent = fmt(el.value, c[6]);
+}
+function readParams() {
+  const p = {};
+  for (const [key, , type] of CTRLS) {
+    const el = $(key);
+    p[key] = type === 'check' ? el.checked : type === 'range' ? Number(el.value) : el.value;
+  }
+  return p;
+}
+function resetValues() {
+  for (const [key, , , def] of CTRLS) if (key !== 'model') setVal(key, def);
+  applyPose();
+}
+function applyPose() {
+  if (upload && $('model').value === '__upload') return;
+  const [up, spin] = DEMO_POSE[$('model').value] || ['z', 0];
+  setVal('up', up);
+  setVal('spin', spin);
+}
+
+// --- render ---
+const workerUrl = URL.createObjectURL(new Blob([$('workerSrc').textContent], { type: 'text/javascript' }));
+let worker = null, busy = false, pending = false, timer = 0, upload = null, svgString = '', svgUrl = '';
+let dims = { w: 0, h: 0 }; // pixelmasse des angezeigten renders, nicht der aktuellen regler
+
+// mit papierformat zeigt die vorschau die ganze seite samt rand
+function showPreview() {
+  if (!svgString) return;
+  if (svgUrl) URL.revokeObjectURL(svgUrl);
+  svgUrl = URL.createObjectURL(new Blob([exportSvg()], { type: 'image/svg+xml' }));
+  $('view').src = svgUrl;
+}
+
+// queue = true (maus-kamera): auf den laufenden render warten, damit beim ziehen bilder kommen.
+// sonst wird der laufende render abgebrochen, der worker-cache geht dabei verloren.
+function render(queue = false) {
+  if (busy && queue) { pending = true; return; }
+  pending = false;
+  if (busy && worker) { worker.terminate(); worker = null; }
+  if (!worker) {
+    worker = new Worker(workerUrl);
+    worker.onmessage = onResult;
+    worker.onerror = e => { busy = false; $('status').textContent = 'error: ' + e.message; };
+  }
+  const p = readParams();
+  const isUp = p.model === '__upload' && upload;
+  const model = isUp ? upload.name : p.model;
+  busy = true;
+  $('status').textContent = 'rendering…';
+  worker.postMessage({ model, bytes: isUp ? upload.bytes.slice(0) : null, p });
+}
+function onResult(e) {
+  busy = false;
+  const r = e.data;
+  if (r.error) { $('status').textContent = 'error: ' + r.error; return; }
+  svgString = r.svg;
+  dims = { w: r.w, h: r.h };
+  showPreview();
+  const kb = Math.round(svgString.length / 1024);
+  $('status').textContent = `${(r.ms / 1000).toFixed(2)} s · ${kb.toLocaleString('de-CH')} kb svg`;
+  $('info').textContent = `${modelName()} · ${r.faces.toLocaleString('de-CH')} faces`;
+  if (pending) render(true);
+}
+const modelName = () => $('model').value === '__upload' && upload ? upload.name : $('model').selectedOptions[0].textContent;
+const schedule = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
+
+$('controls').addEventListener('input', e => {
+  const c = CTRLS.find(c => c[0] === e.target.id);
+  if (c && c[2] === 'range') $(c[0] + '_v').textContent = fmt(e.target.value, c[6]);
+  if (e.target.id === 'model') applyPose();
+  schedule();
+});
+
+// --- file upload, auch per drag & drop auf die bildfläche ---
+async function loadFile(file) {
+  if (!file || !/\.(stl|obj)$/i.test(file.name)) { $('status').textContent = 'only .stl or .obj'; return; }
+  upload = { name: file.name, bytes: await file.arrayBuffer() };
+  let opt = $('model').querySelector('option[value="__upload"]');
+  if (!opt) { opt = new Option('', '__upload'); $('model').prepend(opt); }
+  opt.textContent = file.name;
+  $('model').value = '__upload';
+  render();
+}
+$('btnLoad').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => loadFile(e.target.files[0]);
+const stage = $('stage');
+stage.addEventListener('dragover', e => { e.preventDefault(); stage.classList.add('drop'); });
+stage.addEventListener('dragleave', () => stage.classList.remove('drop'));
+stage.addEventListener('drop', e => { e.preventDefault(); stage.classList.remove('drop'); loadFile(e.dataTransfer.files[0]); });
+
+// --- maus-kamera: ziehen dreht, rad zoomt ---
+const view = $('view');
+let drag = null;
+view.addEventListener('pointerdown', e => {
+  drag = { x: e.clientX, y: e.clientY, az: +$('camAz').value, el: +$('camEl').value };
+  view.setPointerCapture(e.pointerId);
+  view.classList.add('drag');
+});
+view.addEventListener('pointermove', e => {
+  if (!drag) return;
+  let az = drag.az - (e.clientX - drag.x) * 0.4;
+  az = ((az + 540) % 360) - 180;
+  const el = Math.max(-89, Math.min(89, drag.el + (e.clientY - drag.y) * 0.4));
+  setVal('camAz', Math.round(az));
+  setVal('camEl', Math.round(el));
+  render(true);
+});
+const endDrag = () => { drag = null; view.classList.remove('drag'); };
+view.addEventListener('pointerup', endDrag);
+view.addEventListener('pointercancel', endDrag);
+// doppelklick setzt nur die kamera zurueck, die anderen werte bleiben
+view.addEventListener('dblclick', () => {
+  for (const [key, , , def] of CTRLS) if (['camAz', 'camEl', 'zoom'].includes(key)) setVal(key, def);
+  render();
+});
+$('paperSel').addEventListener('change', showPreview);
+view.addEventListener('dragstart', e => e.preventDefault());
+view.addEventListener('wheel', e => {
+  e.preventDefault();
+  const z = Math.max(0.3, Math.min(4, +$('zoom').value * Math.exp(-e.deltaY * 0.002)));
+  setVal('zoom', z.toFixed(2));
+  render(true);
+}, { passive: false });
+
+// --- export, gleiche vorgaben wie contour drawing ---
+// mit papierformat: seite in mm, zeichnung mit 10 mm rand eingepasst, ausrichtung folgt
+// der zeichnung, 0.3 mm strich pro einheit linienstaerke. variable-width-baender sind
+// gefuellte flaechen und skalieren geometrisch mit.
+function exportSvg() {
+  const paper = $('paperSel').value;
+  if (!paper) return svgString;
+  const { w, h } = dims;
+  let [pw, ph] = paper.split(',').map(Number);
+  if ((w > h) !== (pw > ph)) [pw, ph] = [ph, pw];
+  const margin = 10;
+  const sc = Math.min((pw - 2 * margin) / w, (ph - 2 * margin) / h);
+  const ox = (pw - w * sc) / 2, oy = (ph - h * sc) / 2;
+  const inner = svgString
+    .replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
+    .replace(/<rect [^>]*\/>/, '') // krbn-hintergrund, deckt nur die zeichnung
+    .replace(/stroke-width="([\d.]+)"/g, (_, v) => `stroke-width="${(v * 0.3 / sc).toFixed(4)}"`);
+  const bg = $('transparent').checked ? '' : `<rect width="${pw}" height="${ph}" fill="${$('background').value}"/>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${pw} ${ph}" width="${pw}mm" height="${ph}mm">
+${bg}<g transform="translate(${ox.toFixed(3)} ${oy.toFixed(3)}) scale(${sc.toFixed(6)})">${inner}</g>
+</svg>`;
+}
+function fileName(ext) {
+  const opt = $('paperSel').selectedOptions[0];
+  const suffix = opt.value ? '-' + opt.dataset.slug + (dims.w > dims.h ? '-landscape' : '-portrait') : '';
+  const base = $('model').value === '__upload' && upload ? upload.name.replace(/\.(stl|obj)$/i, '') : $('model').value;
+  return base.replace(/[^\w.-]+/g, '-') + '-krbn' + suffix + '.' + ext;
+}
+$('btnDl').onclick = () => {
+  if (!svgString) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([exportSvg()], { type: 'image/svg+xml' }));
+  a.download = fileName('svg');
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+$('pngSizes').onclick = e => { if (e.target.tagName === 'BUTTON') $('pngSize').value = e.target.textContent; };
+$('btnDlPng').onclick = () => {
+  if (!svgString) return;
+  // svg im browser rastern, lange kante aus dem eingabefeld, weisser hintergrund
+  const size = Math.min(6000, Math.max(200, +$('pngSize').value || 2048));
+  const img = new Image();
+  const url = URL.createObjectURL(new Blob([exportSvg()], { type: 'image/svg+xml' }));
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const cv = document.createElement('canvas');
+    const k = size / Math.max(img.naturalWidth, img.naturalHeight);
+    cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    const a = document.createElement('a');
+    // quality 1 = lossless webp in chromium; browser ohne webp-encoder liefern png zurueck
+    a.href = cv.toDataURL($('pngFmt').value, 1);
+    a.download = fileName(a.href.startsWith('data:image/webp') ? 'webp' : 'png');
+    a.click();
+  };
+  img.src = url;
+};
+
+$('btnReset').onclick = () => { resetValues(); render(); };
+$('ptoggle').onclick = () => {
+  const hidden = $('panel').classList.toggle('hidden');
+  $('stage').classList.toggle('wide', hidden);
+  $('ptoggle').classList.toggle('hidden', hidden);
+  $('ptoggle').innerHTML = hidden ? '&lsaquo;' : '&rsaquo;';
+};
+
+setVal('model', 'mushroom');
+resetValues();
+render();
+</script>
+</body>
+</html>
