@@ -17,7 +17,7 @@ Drag on the drawing to rotate the camera, use the mouse wheel to zoom, double-cl
 - lines and hatching: color, weight, wobble, hidden lines, hatch mode, angle, spacing
 - output: background, plotter centerlines, paper sizes from A0 to Half Letter, raster export as PNG or WebP
 
-With a paper size selected, the drawing is placed on the page with a 10 mm margin, and the stroke width is 0.3 mm per unit of line weight. The background is transparent by default; for a plotter, also switch on «plotter centerlines».
+With a paper size selected, the drawing is placed on the page with a 10 mm margin, and the stroke width is 0.3 mm per unit of line weight. Transparent background and plotter centerlines are on by default. For a raster image with swelling pencil strokes, switch centerlines off and «variable width» on.
 
 ## Building
 
