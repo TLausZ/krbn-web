@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")"
 [ -d Krbn ] || git clone --depth 1 https://github.com/vpalos/Krbn.git
 npx --yes esbuild@0.25 worker.ts --bundle --format=iife --minify --target=es2022 \
-  --loader:.obj=text --outfile=.worker.js
+  --loader:.obj=text --loader:.stl=binary --outfile=.worker.js
 KRBN_COMMIT=$(git -C Krbn rev-parse HEAD) node -e '
 const fs = require("fs");
 const w = fs.readFileSync(".worker.js", "utf8").replace(/<\/script/gi, "<\\/script");

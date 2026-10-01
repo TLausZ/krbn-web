@@ -3,12 +3,18 @@
 import { Scene, Mesh, parseSTL, parseOBJ, type MeshInput, type Camera, type Vec3 } from "./Krbn/src/index.ts";
 import { knotTube, torusMesh, bumpyBlob, uvSphere, cube, gravitySheet } from "./Krbn/src/shapes.ts";
 // @ts-ignore: esbuild text-loader
-import mushroom from "./Krbn/examples/importers/mushroom.obj";
+import bunny from "./models/stanford-bunny.obj";
+// @ts-ignore: esbuild binary-loader
+import bevelGear from "./models/apollo11-bevel-gear.stl";
+// @ts-ignore: esbuild binary-loader
+import bitcoinSign from "./models/bitcoin-sign-noto-sans.stl";
 
 const SIZE = 3; // Diagonale nach dem Normalisieren, wie examples/importers/frame.ts
 
 const DEMOS: Record<string, () => MeshInput> = {
-  mushroom: () => parseOBJ(mushroom),
+  bunny: () => parseOBJ(bunny),
+  bevel: () => parseSTL(bevelGear),
+  bitcoin: () => parseSTL(bitcoinSign),
   knot: () => knotTube(),
   torus: () => torusMesh(1.3, 0.52, 72, 36),
   blob: () => bumpyBlob(),
