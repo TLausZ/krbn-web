@@ -177,7 +177,10 @@ SOFTWARE.
     background: var(--paper);
     padding: 2px;
   }
-  .sec { font-size: 12px; font-weight: 400; color: var(--ink); }
+  .sec { font-size: 12px; font-weight: 400; color: var(--ink); cursor: pointer; list-style: none; margin-bottom: 8px; }
+  .sec::before { content: '\25B8'; display: inline-block; width: 12px; color: var(--ink-faint); }
+  details[open] > .sec::before { content: '\25BE'; }
+  .sec::-webkit-details-marker { display: none; }
   .hint { font-size: 12px; color: var(--ink-faint); }
   hr { border: none; border-top: 1px solid var(--border); }
   #status { font-size: 12px; color: var(--ink-faint); min-height: 17px; }
@@ -105762,9 +105765,16 @@ const PRESETS = {
 const CTRLS = SECTIONS.flatMap(s => s[1]);
 
 const fmt = (v, step) => step >= 1 ? String(v) : Number(v).toFixed(String(step).split('.')[1].length);
+// sektionen sind native <details>, der zugeklappte zustand bleibt im localstorage
+let closed = [];
+try { closed = JSON.parse(localStorage.getItem('closedSections')) || []; } catch {}
 for (const [title, ctrls, hint] of SECTIONS) {
-  const box = $('controls');
-  box.insertAdjacentHTML('beforeend', `<hr style="margin:12px 0"><div class="sec" style="margin-bottom:8px">${title}</div>`);
+  $('controls').insertAdjacentHTML('beforeend', `<hr style="margin:12px 0"><details${closed.includes(title) ? '' : ' open'}><summary class="sec">${title}</summary></details>`);
+  const box = $('controls').lastElementChild;
+  box.addEventListener('toggle', () => {
+    closed = closed.filter(t => t !== title).concat(box.open ? [] : [title]);
+    try { localStorage.setItem('closedSections', JSON.stringify(closed)); } catch {}
+  });
   if (hint) box.insertAdjacentHTML('beforeend', `<div class="hint" style="margin-bottom:8px">${hint}</div>`);
   for (const [key, label, type, def, a, b, step] of ctrls) {
     const d = document.createElement('div');
