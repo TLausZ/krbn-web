@@ -77,6 +77,7 @@ SOFTWARE.
   #btnCancel { flex: none; padding: 4px 10px; }
   main { flex: 1; display: flex; min-height: 0; }
   #stage {
+    position: relative;
     flex: 1;
     display: flex;
     align-items: center;
@@ -97,6 +98,8 @@ SOFTWARE.
     border: 1px solid var(--border);
   }
   #view:not([src]) { visibility: hidden; }
+  #cloud { display: none; position: absolute; pointer-events: none; border: 1px solid var(--border); background: var(--paper-bright); }
+  #stage.turning #cloud { display: block; }
   #panel {
     position: fixed;
     top: 61px;
@@ -211,11 +214,12 @@ SOFTWARE.
   <h1>krbn pencil render</h1>
   <div class="sub">
     <span id="busy" hidden><span id="elapsed"></span><button id="btnCancel">cancel</button></span>
+    <span id="turn" hidden>release to render</span>
     <span id="info"></span>
   </div>
 </header>
 <main>
-  <div id="stage"><img id="view" alt="render"></div>
+  <div id="stage"><img id="view" alt="render"><canvas id="cloud"></canvas></div>
   <div id="panel">
     <div class="btnrow">
       <button id="btnLoad">load stl / obj</button>
@@ -479,8 +483,9 @@ if ($('workerSrc').textContent.trim() === '/*WORKER*/') {
   throw new Error('krbn: worker not built');
 }
 const workerUrl = URL.createObjectURL(new Blob([$('workerSrc').textContent], { type: 'text/javascript' }));
-let worker = null, busy = false, pending = false, timer = 0, upload = null, svgString = '', svgUrl = '';
+let worker = null, busy = false, timer = 0, upload = null, svgString = '', svgUrl = '';
 let dims = { w: 0, h: 0 }; // pixelmasse des angezeigten renders, nicht der aktuellen regler
+let shownZoom = 1, renderZoom = 1; // zoom des angezeigten bzw. laufenden renders, fuer die css-vorschau beim rad
 
 // mit papierformat zeigt die vorschau die ganze seite samt rand
 function showPreview() {
@@ -490,11 +495,8 @@ function showPreview() {
   $('view').src = svgUrl;
 }
 
-// queue = true (maus-kamera): auf den laufenden render warten, damit beim ziehen bilder kommen.
-// sonst wird der laufende render abgebrochen, der worker-cache geht dabei verloren.
-function render(queue = false) {
-  if (busy && queue) { pending = true; return; }
-  pending = false;
+// ein laufender render wird abgebrochen, der worker-cache geht dabei verloren.
+function render() {
   if (busy && worker) { worker.terminate(); worker = null; }
   if (!worker) {
     worker = new Worker(workerUrl);
@@ -502,6 +504,7 @@ function render(queue = false) {
     worker.onerror = e => { busy = false; stopClock(); $('status').textContent = 'error: ' + e.message; };
   }
   const p = readParams();
+  renderZoom = +p.zoom;
   const isUp = p.model === '__upload' && upload;
   const model = isUp ? upload.name : p.model;
   busy = true;
@@ -516,11 +519,13 @@ function onResult(e) {
   if (r.error) { $('status').textContent = 'error: ' + r.error; return; }
   svgString = r.svg;
   dims = { w: r.w, h: r.h };
+  shownZoom = renderZoom;
+  $('view').style.transform = '';
   showPreview();
+  if (gl) { gl.bufferData(gl.ARRAY_BUFFER, r.cloud, gl.STATIC_DRAW); cloudN = r.cloud.length / 3; }
   const kb = Math.round(svgString.length / 1024);
   $('status').textContent = `${(r.ms / 1000).toFixed(2)} s · ${kb.toLocaleString('de-CH')} kb svg`;
   $('info').textContent = `${modelName()} · ${r.faces.toLocaleString('de-CH')} faces`;
-  if (pending) render(true);
 }
 // laufzeit im header, erst ab 1 s, damit kurze renders nicht flackern
 let clock = 0, t0 = 0;
@@ -537,7 +542,7 @@ function startClock() {
 function stopClock() { clearInterval(clock); $('busy').hidden = true; }
 $('btnCancel').onclick = () => {
   if (worker) worker.terminate();
-  worker = null; busy = false; pending = false;
+  worker = null; busy = false;
   stopClock();
   $('status').textContent = 'cancelled. raise weld / decimate or switch hatch off, then change any value to render again';
 };
@@ -578,6 +583,66 @@ stage.addEventListener('dragover', e => { e.preventDefault(); stage.classList.ad
 stage.addEventListener('dragleave', () => stage.classList.remove('drop'));
 stage.addEventListener('drop', e => { e.preventDefault(); stage.classList.remove('drop'); loadFile(e.dataTransfer.files[0]); });
 
+// --- punktwolke: webgl-vorschau waehrend des drehens, gleiche projektion wie krbn ---
+const cloud = $('cloud');
+const gl = cloud.getContext('webgl', { antialias: false, premultipliedAlpha: false });
+let cloudN = 0, uP, uS, uC;
+if (gl) {
+  const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+  const prog = gl.createProgram();
+  // P: 3x4-projektion von krbn als mat4, S: bildgroesse in px. pixel (u/w, v/w) -> clip, y nach oben.
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `attribute vec3 a; uniform mat4 P; uniform vec2 S;
+    void main() { vec3 q = (P * vec4(a, 1.)).xyz; gl_Position = vec4(q.x * 2. / S.x - q.z, q.z - q.y * 2. / S.y, 0., q.z); gl_PointSize = 2.; }`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `precision mediump float; uniform vec4 C; void main() { gl_FragColor = C; }`));
+  gl.bindAttribLocation(prog, 0, 'a');
+  gl.linkProgram(prog); gl.useProgram(prog);
+  uP = gl.getUniformLocation(prog, 'P'); uS = gl.getUniformLocation(prog, 'S'); uC = gl.getUniformLocation(prog, 'C');
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+}
+const sph = (azDeg, elDeg, r) => {
+  const az = azDeg * Math.PI / 180, el = elDeg * Math.PI / 180;
+  return [r * Math.cos(el) * Math.cos(az), r * Math.cos(el) * Math.sin(az), r * Math.sin(el)];
+};
+const norm = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+// nachbau von krbn src/math/camera.ts projectionMatrix mit den werten aus worker.ts, als spaltenmajor mat4
+function krbnProjection(p) {
+  const eye = sph(p.camAz, p.camEl, 5.1), W = p.width, H = p.height;
+  const f = norm(eye.map(x => -x)), r = norm(cross(f, [0, 0, 1])), u = cross(r, f);
+  const V = [r[0], r[1], r[2], -dot(r, eye), u[0], u[1], u[2], -dot(u, eye), f[0], f[1], f[2], -dot(f, eye), 0, 0, 0, 1];
+  let K;
+  if (p.projection === 'orthographic') {
+    const inv = p.zoom * H / 3.6;
+    K = [inv, 0, 0, W / 2, 0, -inv, 0, H / 2, 0, 0, 0, 1];
+  } else {
+    const fpx = H / 2 / Math.tan(0.68 / p.zoom / 2);
+    K = [fpx, 0, W / 2, 0, 0, -fpx, H / 2, 0, 0, 0, 1, 0];
+  }
+  const M = new Float32Array(16); M[15] = 1;
+  for (let row = 0; row < 3; row++) for (let c = 0; c < 4; c++) {
+    let t = 0;
+    for (let k = 0; k < 4; k++) t += K[row * 4 + k] * V[k * 4 + c];
+    M[c * 4 + row] = t;
+  }
+  return M;
+}
+function drawCloud() {
+  const p = readParams();
+  const k = Math.min(1, 1200 / Math.max(p.width, p.height)); // puffer deckeln, die projektion ist davon unabhaengig
+  const w = Math.round(p.width * k), h = Math.round(p.height * k);
+  if (cloud.width !== w || cloud.height !== h) { cloud.width = w; cloud.height = h; }
+  const c = parseInt(p.color.slice(1), 16);
+  gl.viewport(0, 0, w, h);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniformMatrix4fv(uP, false, krbnProjection(p));
+  gl.uniform2f(uS, p.width, p.height);
+  gl.uniform4f(uC, (c >> 16 & 255) / 255, (c >> 8 & 255) / 255, (c & 255) / 255, 1);
+  gl.drawArrays(gl.POINTS, 0, cloudN);
+}
+
 // --- maus-kamera: ziehen dreht, rad zoomt ---
 const view = $('view');
 let drag = null;
@@ -585,6 +650,13 @@ view.addEventListener('pointerdown', e => {
   drag = { x: e.clientX, y: e.clientY, az: +$('camAz').value, el: +$('camEl').value };
   view.setPointerCapture(e.pointerId);
   view.classList.add('drag');
+  if (gl && cloudN) {
+    // canvas deckungsgleich ueber das bild legen; das bild behaelt die pointer-events
+    const a = view.getBoundingClientRect(), b = stage.getBoundingClientRect();
+    Object.assign(cloud.style, { left: a.left - b.left + 'px', top: a.top - b.top + 'px', width: a.width + 'px', height: a.height + 'px' });
+    stage.classList.add('turning');
+    drawCloud();
+  }
 });
 view.addEventListener('pointermove', e => {
   if (!drag) return;
@@ -593,9 +665,17 @@ view.addEventListener('pointermove', e => {
   const el = Math.max(-89, Math.min(89, drag.el + (e.clientY - drag.y) * 0.4));
   setVal('camAz', Math.round(az));
   setVal('camEl', Math.round(el));
-  render(true);
+  drag.moved = true;
+  $('turn').hidden = false;
+  if (stage.classList.contains('turning')) drawCloud();
 });
-const endDrag = () => { drag = null; view.classList.remove('drag'); };
+// erst beim loslassen rendern, waehrend des ziehens dreht nur die punktwolke
+const endDrag = () => {
+  const moved = drag?.moved;
+  drag = null; view.classList.remove('drag'); stage.classList.remove('turning');
+  $('turn').hidden = true;
+  if (moved) render();
+};
 view.addEventListener('pointerup', endDrag);
 view.addEventListener('pointercancel', endDrag);
 // doppelklick setzt nur die kamera zurueck, die anderen werte bleiben
@@ -609,7 +689,9 @@ view.addEventListener('wheel', e => {
   e.preventDefault();
   const z = Math.max(0.3, Math.min(4, +$('zoom').value * Math.exp(-e.deltaY * 0.002)));
   setVal('zoom', z.toFixed(2));
-  render(true);
+  // sofortige css-vorschau, der echte render folgt nach dem letzten rad-tick
+  view.style.transform = `scale(${z / shownZoom})`;
+  schedule();
 }, { passive: false });
 
 // --- export, gleiche vorgaben wie contour drawing ---

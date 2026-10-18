@@ -109,7 +109,39 @@ self.onmessage = (e: MessageEvent) => {
       ...(p.hlHalo ? { halo: {} } : {}),
     });
     const svg = scene.render(cam).svg;
-    postMessage({ svg, w: p.width, h: p.height, faces: mesh.he.faceCount, ms: performance.now() - t0 });
+    // drehvorschau fuer den hauptthread: punktwolke mit hoechstens 4k punkten. unter 100 vertices
+    // werden die punkte auf den dreiecksflaechen verteilt (flaechenproportional, fester seed),
+    // sonst sind es die vertices selbst, ab 4k ausgeduennt
+    const pts = cached!.positions, N = 4000;
+    let cloud: Float32Array;
+    if (pts.length < 100) {
+      const tris = cached!.triangles;
+      const area = tris.map((t) => {
+        const [a, b, c] = [pts[t[0]!]!, pts[t[1]!]!, pts[t[2]!]!];
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        return Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!);
+      });
+      const total = area.reduce((x, y) => x + y, 0);
+      let seed = 1, j = 0;
+      const rnd = () => ((seed = (seed * 48271) % 2147483647) / 2147483647); // ponytail: lehmer, reicht fuer streuung
+      cloud = new Float32Array(N * 3 + tris.length * 3);
+      tris.forEach((t, i) => {
+        const [a, b, c] = [pts[t[0]!]!, pts[t[1]!]!, pts[t[2]!]!];
+        for (let n = Math.round((N * area[i]!) / total); n > 0; n--) {
+          let r1 = rnd(), r2 = rnd();
+          if (r1 + r2 > 1) { r1 = 1 - r1; r2 = 1 - r2; }
+          for (let k = 0; k < 3; k++) cloud[j + k] = a[k]! + r1 * (b[k]! - a[k]!) + r2 * (c[k]! - a[k]!);
+          j += 3;
+        }
+      });
+      cloud = cloud.subarray(0, j);
+    } else {
+      const step = Math.ceil(pts.length / N);
+      cloud = new Float32Array(Math.ceil(pts.length / step) * 3);
+      for (let i = 0, j = 0; i < pts.length; i += step, j += 3) cloud.set(pts[i]!, j);
+    }
+    const out = cloud.slice(); // eigener puffer, subarray teilt sich sonst den grossen
+    postMessage({ svg, w: p.width, h: p.height, faces: mesh.he.faceCount, ms: performance.now() - t0, cloud: out }, [out.buffer]);
   } catch (err) {
     cacheKey = "";
     postMessage({ error: String((err as Error)?.message ?? err) });

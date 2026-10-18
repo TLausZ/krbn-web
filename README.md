@@ -10,7 +10,7 @@ Open `index.html` in a browser, by double-click or as `file://`. No server is ne
 
 There are eight demo models: the Stanford bunny, a bevel gear from the Apollo 11 crew hatch, the bitcoin sign ₿ and five shapes that Krbn generates itself. Choosing a demo also sets suitable values for up axis, spin, crease angle and hatching. Load your own model with «load stl / obj» or by dropping the file onto the drawing area. Rendering runs in a web worker, so the interface stays responsive with large models.
 
-Drag on the drawing to rotate the camera, use the mouse wheel to zoom, double-click to reset the camera. The panel exposes every setting of the engine:
+Drag on the drawing to rotate the camera: while dragging, a point cloud of the model turns in WebGL, and the pencil render follows when you release. The mouse wheel zooms, double-click resets the camera. The panel exposes every setting of the engine:
 
 - model: up axis, spin, decimation, crease angle, suggestive contours
 - camera and light: projection, angles, zoom, image size
