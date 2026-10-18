@@ -81,7 +81,7 @@ self.onmessage = (e: MessageEvent) => {
       abstraction: { minFeaturePx: p.minFeaturePx, toneLevels: p.toneLevels, consolidate: p.consolidate },
     });
     const mesh = new Mesh(cached!, {
-      weldEps: SIZE * p.detail,
+      weldEps: Math.max(SIZE * p.detail, SIZE * 1e-6), // 0 waere gar kein weld: stl-soup bliebe ohne topologie und jede kante eine randlinie
       creaseAngle: (p.creaseAngle * Math.PI) / 180,
       suggestive: p.suggestive ? { threshold: p.sugThreshold, fade: p.sugFade } : false,
     });
