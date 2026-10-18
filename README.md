@@ -2,22 +2,29 @@
 
 A web app for [Krbn](https://github.com/vpalos/Krbn), Valeriu Paloș's engine for pencil-style line drawings. The app is a single HTML file: load an STL or OBJ model, adjust lines, hatching and camera, and save the result as SVG or as a raster image. The SVG output can go straight to a pen plotter.
 
-![Stanford bunny with parallel hatching in the app](screenshot.png)
+![Trefoil knot with hatching in the app](screenshot.png)
 
 ## Usage
 
-Open `index.html` in a browser, by double-click or as `file://`. No server is needed; the engine and the demo model are embedded in the file.
+Open `index.html` in a browser, by double-click or as `file://`. No server is needed; the engine and the demo models are embedded in the file.
 
-There are eight demo models: the Stanford bunny, a bevel gear from the Apollo 11 crew hatch, the bitcoin sign ₿ and five shapes that Krbn generates itself. Choosing a demo also sets suitable values for up axis, spin, crease angle and hatching. Load your own model with «load stl / obj» or by dropping the file onto the drawing area. Rendering runs in a web worker, so the interface stays responsive with large models.
+Eight demo models are built in. Load your own model with «load stl / obj» or by dropping the file onto the drawing area.
 
-Drag on the drawing to rotate the camera: while dragging, a point cloud of the model turns in WebGL, and the pencil render follows when you release. The mouse wheel zooms, double-click resets the camera. The panel exposes every setting of the engine:
+Drag on the drawing to rotate the camera: while dragging, a point cloud of the model turns in WebGL, and the pencil render follows when you release. The mouse wheel zooms, double-click resets the camera.
 
-- model: up axis, spin, decimation, crease angle, suggestive contours
-- camera and light: projection, angles, zoom, image size
-- lines and hatching: color, weight, wobble, hidden lines, hatch mode, angle, spacing
-- output: background, plotter centerlines, paper sizes from A0 to Half Letter, raster export as PNG or WebP
+The panel exposes every setting of the engine; these make the biggest difference:
 
-With a paper size selected, the drawing is placed on the page with a 10 mm margin, and the stroke width is 0.3 mm per unit of line weight. Transparent background and plotter centerlines are on by default. For a raster image with swelling pencil strokes, switch centerlines off and «variable width» on.
+- weld / decimate: welding tolerance, also the decimation knob. Raise it to simplify a large mesh and speed up rendering.
+- crease angle: an edge whose two faces meet at more than this angle is drawn as a crease line; 180 suppresses creases, good for smooth scans.
+- hidden lines: ghost draws lines behind the model as faint dashes, drop leaves them out so the surface reads as opaque.
+- hatch mode: single, cross or triple layered hatching, denser where the surface is darker; none draws outlines only.
+- variable width: strokes become filled ribbons that taper and swell like a pencil. A plotter traces only their outline, so every line comes out double. Leave it off for plotting.
+
+## Export
+
+«download svg» saves the drawing as SVG. For a pen plotter, set a paper size: the drawing is placed on a page in mm with a 10 mm margin, oriented like the drawing, and the stroke width becomes 0.3 mm per unit of line weight. «plotter centerlines» turns every stroke into a single-line path with constant width, so a pen draws each line exactly once; «transparent background» leaves out the background rectangle. Both are on by default. «precision» sets the decimal places of the coordinates; fewer gives smaller files.
+
+«download raster» saves the drawing as PNG or WebP with a white background. The number sets the long edge in px. With a paper size selected, the raster shows the whole page. For swelling pencil strokes in a raster image, switch centerlines off and «variable width» on.
 
 ## Models
 
