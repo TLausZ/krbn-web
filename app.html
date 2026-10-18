@@ -384,7 +384,7 @@ const HELP = {
   up: 'which model axis points up. programs export stl and obj with different conventions; try another axis if a model lies on its side.',
   spin: 'rotates the model about the vertical axis before rendering, in degrees.',
   detail: 'welds vertices closer than this fraction of the model size before building the mesh. 0 keeps every vertex and gives the cleanest outlines, larger simplifies the mesh and renders faster.',
-  creaseAngle: 'an edge whose two faces meet at more than this angle is drawn as a sharp crease line. 180 suppresses creases, good for smooth organic scans.',
+  creaseAngle: 'an edge whose two faces meet at more than this angle is drawn as a sharp crease line. 180 suppresses creases, good for smooth organic scans. small angles on a noisy scan turn thousands of edges into lines and slow the render down several times over.',
   suggestive: 'adds the form lines an artist draws where the surface almost turns away from the viewer (decarlo et al.). needs extra curvature computation.',
   sugThreshold: 'filters weak and noisy suggestive contours: only those where the radial curvature rises faster than this are drawn. 0 draws all. smooth shapes react between 1 and 10, scans like the bunny only from about 20. easiest to judge with hatch mode none.',
   sugFade: 'contours near the threshold fade in over this band instead of popping on and off, which keeps camera moves calm. 0 is a hard cut. same unit as the threshold.',
