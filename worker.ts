@@ -85,6 +85,8 @@ self.onmessage = (e: MessageEvent) => {
       creaseAngle: (p.creaseAngle * Math.PI) / 180,
       suggestive: p.suggestive ? { threshold: p.sugThreshold, fade: p.sugFade } : false,
     });
+    // selbstverdeckungs-toleranz der silhouette, krbn nimmt fest 0.75 kantenlaengen
+    mesh.selfNudge = () => p.slack * mesh.he.meanEdgeLength;
     const el = scene.add(mesh).setImportance(p.importance).style({
       weight: p.weight,
       color: p.color,
