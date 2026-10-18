@@ -7,14 +7,14 @@ import bunny from "./models/stanford-bunny.obj";
 // @ts-ignore: esbuild binary-loader
 import bevelGear from "./models/apollo11-bevel-gear.stl";
 // @ts-ignore: esbuild binary-loader
-import bitcoinSign from "./models/bitcoin-sign-noto-sans.stl";
+import bitcoinLogo from "./models/bitcoin-logo.stl";
 
 const SIZE = 3; // Diagonale nach dem Normalisieren, wie examples/importers/frame.ts
 
 const DEMOS: Record<string, () => MeshInput> = {
   bunny: () => parseOBJ(bunny),
   bevel: () => parseSTL(bevelGear),
-  bitcoin: () => parseSTL(bitcoinSign),
+  bitcoin: () => parseSTL(bitcoinLogo),
   knot: () => knotTube(),
   torus: () => torusMesh(1.3, 0.52, 72, 36),
   blob: () => bumpyBlob(),

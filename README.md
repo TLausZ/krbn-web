@@ -32,7 +32,7 @@ The panel exposes every setting of the engine; these make the biggest difference
 |---|---|---|
 | Stanford bunny | [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/), Stanford Computer Graphics Laboratory; OBJ from [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models) | free redistribution, no commercial use without permission |
 | Apollo 11 bevel gear | [External Input Bevel Gear](https://commons.wikimedia.org/wiki/File:External_Input_Bevel_Gear_v27_(Hatch,_Crew,_Apollo_11_by_NASA_and_Smithsonian_Institution).stl), crew hatch of Apollo 11, NASA and Smithsonian Institution | CC0 |
-| bitcoin sign ₿ | [U+20BF Noto Sans](https://commons.wikimedia.org/wiki/File:U%2B20BF_Noto_Sans_20230523.stl), 3D model by PantheraLeo1359531, glyph from the Noto Sans font by Google | CC0 |
+| Bitcoin | [Bitcoin logo](https://www.printables.com/model/112691-bitcoin-logo) by Arsen on Printables, edges rounded with Blender (voxel remesh, smooth, subdivision) | CC0 |
 
 Because of the Stanford terms, `index.html` as a whole may not be used commercially without Stanford's permission. The code itself is MIT.
 
