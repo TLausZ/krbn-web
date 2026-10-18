@@ -4,6 +4,8 @@ A web app for [Krbn](https://github.com/vpalos/Krbn), Valeriu Paloș's engine fo
 
 ![Trefoil knot with hatching in the app](screenshot.png)
 
+**Try it online:** [tlausz.github.io/krbn-web](https://tlausz.github.io/krbn-web/)
+
 ## Usage
 
 Open `index.html` in a browser, by double-click or as `file://`. No server is needed; the engine and the demo models are embedded in the file.
