@@ -30,7 +30,7 @@ The panel exposes every setting of the engine; these make the biggest difference
 
 | Model | Source | License |
 |---|---|---|
-| Stanford bunny | [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/), Stanford Computer Graphics Laboratory; OBJ from [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models) | free redistribution, no commercial use without permission |
+| Stanford bunny | [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/), Stanford Computer Graphics Laboratory; OBJ from [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models), holes in the base closed with Blender so the silhouette forms closed loops | free redistribution, no commercial use without permission |
 | Apollo 11 bevel gear | [External Input Bevel Gear](https://commons.wikimedia.org/wiki/File:External_Input_Bevel_Gear_v27_(Hatch,_Crew,_Apollo_11_by_NASA_and_Smithsonian_Institution).stl), crew hatch of Apollo 11, NASA and Smithsonian Institution | CC0 |
 | Bitcoin | [Bitcoin logo](https://www.printables.com/model/112691-bitcoin-logo) by Arsen on Printables, edges rounded with Blender (voxel remesh, smooth, subdivision) | CC0 |
 
