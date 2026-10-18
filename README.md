@@ -8,7 +8,7 @@ A web app for [Krbn](https://github.com/vpalos/Krbn), Valeriu Paloș's engine fo
 
 Open `index.html` in a browser, by double-click or as `file://`. No server is needed; the engine and the demo models are embedded in the file.
 
-Eight demo models are built in. Load your own model with «load stl / obj» or by dropping the file onto the drawing area.
+Eight demo models are built in. Load your own model with «load stl / obj» or by dropping the file onto the drawing area. The mesh should be watertight: hatching fills only closed outlines, so a model with holes loses its hatching at some camera angles.
 
 Drag on the drawing to rotate the camera: while dragging, a point cloud of the model turns in WebGL, and the pencil render follows when you release. The mouse wheel zooms, double-click resets the camera.
 
