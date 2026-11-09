@@ -159,6 +159,10 @@ SOFTWARE.
   .ctrl.check input { accent-color: var(--ink); }
   input.bad { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
   .hint.err { color: var(--ink); margin-top: 2px; }
+  #bigDlg { margin: auto; width: 300px; padding: 16px; background: var(--paper-bright); color: var(--ink); border: 1px solid var(--border-strong); border-radius: 4px; }
+  #bigDlg::backdrop { background: rgba(92,74,52,0.3); }
+  #bigDlg h2 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  #bigDlg .btnrow { margin-top: 16px; }
   select, input[type=text], input[type=number] {
     font-family: inherit;
     font-size: 12px;
@@ -229,6 +233,13 @@ SOFTWARE.
     </div>
     <input type="file" id="fileInput" accept=".stl,.obj" hidden>
     <div class="hint err" id="warn" hidden></div>
+    <dialog id="bigDlg">
+      <form method="dialog">
+        <h2>large mesh</h2>
+        <p id="bigMsg"></p>
+        <div class="btnrow"><button value="cancel">cancel</button><button value="load" autofocus>load</button></div>
+      </form>
+    </dialog>
     <div id="controls"></div>
     <div class="ctrl">
       <label><span>paper<span class="help" data-help="paper">?</span></span></label>
@@ -105083,9 +105094,27 @@ $('controls').addEventListener('input', e => {
 });
 
 // --- file upload, auch per drag & drop auf die bildfläche ---
+// ab 100'000 faces vor dem laden nachfragen. obj: ein quad zaehlt als 1 face, die zahl ist eher zu tief
+const WARN_FACES = 100000;
+function countFaces(buf) {
+  const dv = new DataView(buf);
+  if (buf.byteLength >= 84 && 84 + 50 * dv.getUint32(80, true) === buf.byteLength) return dv.getUint32(80, true);
+  const txt = new TextDecoder().decode(buf);
+  return (txt.match(/^\s*facet\b/gm) || txt.match(/^f\s/gm) || []).length;
+}
+function confirmBig(name, n) {
+  $('bigMsg').textContent = `${name} has ${n.toLocaleString('de-CH')} faces. rendering may be very slow.`;
+  const dlg = $('bigDlg');
+  dlg.returnValue = '';
+  dlg.showModal();
+  return new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue === 'load'), { once: true }));
+}
 async function loadFile(file) {
   if (!file || !/\.(stl|obj)$/i.test(file.name)) { $('status').textContent = 'only .stl or .obj'; return; }
-  upload = { name: file.name, bytes: await file.arrayBuffer() };
+  const bytes = await file.arrayBuffer();
+  const n = countFaces(bytes);
+  if (n > WARN_FACES && !await confirmBig(file.name, n)) { $('fileInput').value = ''; return; }
+  upload = { name: file.name, bytes };
   let opt = $('model').querySelector('option[value="__upload"]');
   if (!opt) { opt = new Option('', '__upload'); $('model').prepend(opt); }
   opt.textContent = file.name;
