@@ -85,15 +85,18 @@ SOFTWARE.
     margin-right: 276px;
     min-width: 0;
     overflow: hidden;
+    container-type: size; /* #view skaliert mit cqw/cqh auf die buehne */
   }
   #stage.wide { margin-right: 0; }
   #view { cursor: grab; touch-action: none; }
   #view.drag { cursor: grabbing; }
   #stage.drop { outline: 1px dashed var(--ink); outline-offset: -8px; }
+  /* so gross wie die buehne erlaubt, im seitenverhaeltnis des bildes (--ar, gesetzt beim load).
+     der rahmen bleibt so um die zeichnung, und #cloud deckt sich weiter mit dem bild */
   #view {
     display: block;
-    max-width: 100%;
-    max-height: 100%;
+    width: min(100cqw, 100cqh * var(--ar, 1));
+    height: auto;
     border: 1px solid var(--border);
   }
   #view:not([src]) { visibility: hidden; }
@@ -516,6 +519,7 @@ function showPreview() {
   svgUrl = URL.createObjectURL(new Blob([exportSvg()], { type: 'image/svg+xml' }));
   $('view').src = svgUrl;
 }
+$('view').addEventListener('load', e => e.target.style.setProperty('--ar', e.target.naturalWidth / e.target.naturalHeight));
 
 // ein laufender render wird abgebrochen, der worker-cache geht dabei verloren.
 function render() {
