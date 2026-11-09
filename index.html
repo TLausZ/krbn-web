@@ -105078,7 +105078,7 @@ $('btnCancel').onclick = () => {
 // ab 8 mb nur warnen, laden geht trotzdem; abbrechen kann man jederzeit
 const WARN_BYTES = 8 * 1024 * 1024;
 function updateWarn() {
-  const big = $('model').value === '__upload' && upload && upload.bytes.byteLength > WARN_BYTES;
+  const big = $('model').value === '__upload' && upload && !upload.maxFaces && upload.bytes.byteLength > WARN_BYTES; // nach simplify ist das mesh schon klein
   $('warn').hidden = !big;
   if (big) $('warn').textContent = `large file (${(upload.bytes.byteLength / 1048576).toFixed(1)} mb): rendering can take long. raise weld / decimate to simplify the mesh; cancel at the top stops a render.`;
 }
