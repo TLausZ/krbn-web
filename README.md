@@ -59,7 +59,7 @@ On the first run the script clones Krbn into `Krbn/`, bundles `worker.ts` with e
 git -C Krbn pull && ./build.sh
 ```
 
-Requires Git and Node.js; `npx` fetches esbuild during the build.
+Requires Git and Node.js; the first build runs `npm ci` for meshoptimizer (mesh simplification), `npx` fetches esbuild.
 
 ## Files
 

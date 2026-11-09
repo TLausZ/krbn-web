@@ -4,6 +4,7 @@
 #   (cd Krbn && git pull) für eine neuere Engine, dann neu bauen
 set -e
 cd "$(dirname "$0")"
+[ -d node_modules ] || npm ci
 [ -d Krbn ] || git clone --depth 1 https://github.com/vpalos/Krbn.git
 npx --yes esbuild@0.25 worker.ts --bundle --format=iife --minify --target=es2022 \
   --loader:.obj=text --loader:.stl=binary --outfile=.worker.js

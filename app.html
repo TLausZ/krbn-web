@@ -237,7 +237,7 @@ SOFTWARE.
       <form method="dialog">
         <h2>large mesh</h2>
         <p id="bigMsg"></p>
-        <div class="btnrow"><button value="cancel">cancel</button><button value="load" autofocus>load</button></div>
+        <div class="btnrow"><button value="cancel">cancel</button><button value="load">load</button><button value="simplify" autofocus>simplify</button></div>
       </form>
     </dialog>
     <div id="controls"></div>
@@ -532,7 +532,7 @@ function render() {
   busy = true;
   startClock();
   $('status').textContent = 'rendering…';
-  worker.postMessage({ model, bytes: isUp ? upload.bytes.slice(0) : null, p });
+  worker.postMessage({ model, bytes: isUp ? upload.bytes.slice(0) : null, maxFaces: isUp ? upload.maxFaces : 0, p });
 }
 function onResult(e) {
   busy = false;
@@ -597,18 +597,19 @@ function countFaces(buf) {
   return (txt.match(/^\s*facet\b/gm) || txt.match(/^f\s/gm) || []).length;
 }
 function confirmBig(name, n) {
-  $('bigMsg').textContent = `${name} has ${n.toLocaleString('de-CH')} faces. rendering may be very slow.`;
+  $('bigMsg').textContent = `${name} has ${n.toLocaleString('de-CH')} faces. rendering may be very slow. simplify reduces it to ${WARN_FACES.toLocaleString('de-CH')}.`;
   const dlg = $('bigDlg');
   dlg.returnValue = '';
   dlg.showModal();
-  return new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue === 'load'), { once: true }));
+  return new Promise(res => dlg.addEventListener('close', () => res(dlg.returnValue), { once: true }));
 }
 async function loadFile(file) {
   if (!file || !/\.(stl|obj)$/i.test(file.name)) { $('status').textContent = 'only .stl or .obj'; return; }
   const bytes = await file.arrayBuffer();
   const n = countFaces(bytes);
-  if (n > WARN_FACES && !await confirmBig(file.name, n)) { $('fileInput').value = ''; return; }
-  upload = { name: file.name, bytes };
+  const choice = n > WARN_FACES ? await confirmBig(file.name, n) : 'load';
+  if (choice !== 'load' && choice !== 'simplify') { $('fileInput').value = ''; return; }
+  upload = { name: file.name, bytes, maxFaces: choice === 'simplify' ? WARN_FACES : 0 };
   let opt = $('model').querySelector('option[value="__upload"]');
   if (!opt) { opt = new Option('', '__upload'); $('model').prepend(opt); }
   opt.textContent = file.name;

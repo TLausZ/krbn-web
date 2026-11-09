@@ -1,6 +1,7 @@
 // Render-Worker: bekommt Modell-Bytes und Einstellungen, liefert ein SVG zurück.
 // Wird von build.sh gebündelt und inline in index.html eingesetzt.
 import { Scene, Mesh, parseSTL, parseOBJ, type MeshInput, type Camera, type Vec3 } from "./Krbn/src/index.ts";
+import { MeshoptSimplifier } from "meshoptimizer";
 import { knotTube, torusMesh, bumpyBlob, uvSphere, cube, gravitySheet } from "./Krbn/src/shapes.ts";
 // @ts-ignore: esbuild text-loader
 import bunny from "./models/stanford-bunny.obj";
@@ -43,6 +44,32 @@ function normalize(mi: MeshInput, up: string, spinDeg: number): MeshInput {
   };
 }
 
+// auf hoechstens maxFaces dreiecke reduzieren (quadric error, silhouette bleibt). laeuft nach
+// normalize. stl ist eine dreieckssuppe: zuerst wie krbn mit WELD_EPS verschweissen und die
+// duplikate ganz entfernen. sonst sperrt meshoptimizer jeden vertex als naht, und beinahe gleiche
+// positionen bleiben ein offener rand, der beim vereinfachen aufreisst (dann fehlt die schraffur)
+const WELD_EPS = SIZE * 1e-6;
+function simplify(mi: MeshInput, maxFaces: number): MeshInput {
+  if (mi.triangles.length <= maxFaces) return mi;
+  const q = new Float32Array(mi.positions.flat().map((x) => Math.round(x / WELD_EPS) * WELD_EPS));
+  const remap = MeshoptSimplifier.generatePositionRemap(q, 3);
+  const idx = new Uint32Array(mi.triangles.length * 3);
+  mi.triangles.forEach((t, i) => { for (let k = 0; k < 3; k++) idx[i * 3 + k] = remap[t[k]!]!; });
+  let positions = compact(idx, mi.positions);
+  const [out] = MeshoptSimplifier.simplify(idx, new Float32Array(positions.flat()), 3, maxFaces * 3, 1, ["Regularize"]); // fehler 1 = ganze ausdehnung, die zielzahl begrenzt. regularize: ohne kippen auf scans dreiecke um und zerstoeren silhouette und schraffur
+  positions = compact(out, positions); // wegvereinfachte vertices raus, krbn zaehlt sonst mit
+  const triangles: MeshInput["triangles"] = [];
+  for (let i = 0; i < out.length; i += 3) triangles.push([out[i]!, out[i + 1]!, out[i + 2]!]);
+  return { positions, triangles };
+}
+// nummeriert idx auf 0..n-1 um und gibt nur die benutzten positionen zurueck
+function compact(idx: Uint32Array, pos: readonly Vec3[]): Vec3[] {
+  const [map, n] = MeshoptSimplifier.compactMesh(idx);
+  const out: Vec3[] = new Array(n);
+  map.forEach((j, i) => { if (j < n) out[j] = pos[i]!; });
+  return out;
+}
+
 const sph = (azDeg: number, elDeg: number, r = 1): Vec3 => {
   const az = (azDeg * Math.PI) / 180, el = (elDeg * Math.PI) / 180;
   return [r * Math.cos(el) * Math.cos(az), r * Math.cos(el) * Math.sin(az), r * Math.sin(el)];
@@ -52,16 +79,18 @@ const dash = (t: string) => t.split(/[\s,]+/).map(Number).filter((n) => n > 0);
 // ponytail: Cache hält nur das zuletzt geparste Modell, reicht für einen Nutzer.
 let cacheKey = "", cached: MeshInput | null = null;
 
-self.onmessage = (e: MessageEvent) => {
-  const { model, bytes, p } = e.data;
+self.onmessage = async (e: MessageEvent) => {
+  const { model, bytes, p, maxFaces } = e.data;
   const t0 = performance.now();
   try {
-    const key = `${model}|${bytes?.byteLength ?? 0}|${p.up}|${p.spin}`;
+    const key = `${model}|${bytes?.byteLength ?? 0}|${maxFaces}|${p.up}|${p.spin}`;
     if (key !== cacheKey) {
       const raw = bytes
         ? /\.stl$/i.test(model) ? parseSTL(new Uint8Array(bytes)) : parseOBJ(new Uint8Array(bytes))
         : DEMOS[model]!();
+      if (maxFaces) await MeshoptSimplifier.ready;
       cached = normalize(raw, p.up, p.spin);
+      if (maxFaces) cached = simplify(cached, maxFaces);
       cacheKey = key;
     }
     const viewport = { width: p.width, height: p.height };
@@ -81,7 +110,7 @@ self.onmessage = (e: MessageEvent) => {
       abstraction: { minFeaturePx: p.minFeaturePx, toneLevels: p.toneLevels, consolidate: p.consolidate },
     });
     const mesh = new Mesh(cached!, {
-      weldEps: Math.max(SIZE * p.detail, SIZE * 1e-6), // 0 waere gar kein weld: stl-soup bliebe ohne topologie und jede kante eine randlinie
+      weldEps: Math.max(SIZE * p.detail, WELD_EPS), // 0 waere gar kein weld: stl-soup bliebe ohne topologie und jede kante eine randlinie
       creaseAngle: (p.creaseAngle * Math.PI) / 180,
       suggestive: p.suggestive ? { threshold: p.sugThreshold, fade: p.sugFade } : false,
     });
