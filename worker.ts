@@ -116,6 +116,12 @@ self.onmessage = async (e: MessageEvent) => {
     });
     // selbstverdeckungs-toleranz der silhouette, krbn nimmt fest 0.75 kantenlaengen
     mesh.selfNudge = () => p.slack * mesh.he.meanEdgeLength;
+    // krbn rechnet die silhouette fuer jede feature-linie neu (classifyFeature), ein voller
+    // durchlauf ueber alle faces. pro kamera einmal reicht: bei 100k faces und vielen
+    // crease-linien war das der grossteil der renderzeit
+    const sil = mesh.projectedSilhouettes.bind(mesh);
+    let silCam: Camera | null = null, silOut: ReturnType<typeof sil> = [];
+    mesh.projectedSilhouettes = (c: Camera) => c === silCam ? silOut : (silCam = c, silOut = sil(c));
     const el = scene.add(mesh).setImportance(p.importance).style({
       weight: p.weight,
       color: p.color,
